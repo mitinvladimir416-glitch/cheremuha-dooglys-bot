@@ -18,9 +18,53 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:3000")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 if not BOT_TOKEN:
     raise RuntimeError("TELEGRAM_BOT_TOKEN не задан — проверьте .env")
+
+# Список "функций", которые AI может выбрать в ответ на свободный текст пользователя
+AVAILABLE_ACTIONS = {
+    "dashboard": "сводка по выручке и заказам за сегодня",
+    "lowstock": "список ингредиентов с критично низким остатком",
+    "dooglys_products": "список товаров напрямую из Dooglys",
+    "dooglys_stock": "остатки на складе напрямую из Dooglys",
+}
+
+
+async def ask_ai_which_action(user_text: str) -> str:
+    """Спрашивает DeepSeek через OpenRouter, какое действие подходит под запрос пользователя."""
+    system_prompt = (
+        "Ты помощник кафе. Тебе нужно выбрать ОДНО действие из списка, "
+        "которое лучше всего отвечает на запрос пользователя. "
+        "Ответь ТОЛЬКО ключом действия, без пояснений.\n\n"
+        + "\n".join(f"{key}: {desc}" for key, desc in AVAILABLE_ACTIONS.items())
+    )
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "deepseek/deepseek-chat",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_text},
+                ],
+                "max_tokens": 20,
+            },
+        ) as resp:
+            result = await resp.json()
+    try:
+        answer = result["choices"][0]["message"]["content"].strip().lower()
+    except (KeyError, IndexError):
+        return ""
+    for key in AVAILABLE_ACTIONS:
+        if key in answer:
+            return key
+    return ""
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
@@ -124,6 +168,55 @@ async def cmd_lowstock(message: Message):
         return
     text = "⚠️ Заканчиваются:\n" + "\n".join(f"- {i['name']}: {i['current_stock']} {i['unit']}" for i in items)
     await message.answer(text)
+
+
+@dp.message(F.text)
+async def handle_free_text(message: Message):
+    """Ловит любое обычное сообщение (не команду) и пытается понять его через AI."""
+    if message.from_user.id not in user_sessions:
+        await message.answer("Сначала авторизуйтесь: /start")
+        return
+
+    await message.answer("🤔 Думаю...")
+    action = await ask_ai_which_action(message.text)
+
+    headers = _auth_header(message.from_user.id)
+    async with aiohttp.ClientSession() as session:
+        if action == "dashboard":
+            async with session.get(f"{BACKEND_URL}/api/dashboard/summary?period=day", headers=headers) as r:
+                data = await r.json()
+            await message.answer(f"📊 Выручка сегодня: {data['revenue']} ₽, заказов: {data['orders']}")
+
+        elif action == "lowstock":
+            async with session.get(f"{BACKEND_URL}/api/ingredients/low-stock", headers=headers) as r:
+                items = await r.json()
+            if not items:
+                await message.answer("✅ Критичных остатков нет.")
+            else:
+                text = "⚠️ Заканчиваются:\n" + "\n".join(f"- {i['name']}: {i['current_stock']} {i['unit']}" for i in items)
+                await message.answer(text)
+
+        elif action == "dooglys_products":
+            async with session.get(f"{BACKEND_URL}/api/dooglys/products", headers=headers) as r:
+                if r.status != 200:
+                    await message.answer("❌ Не удалось получить товары из Dooglys.")
+                    return
+                data = await r.json()
+            await message.answer(f"📦 Получено товаров из Dooglys: {len(data) if isinstance(data, list) else '—'}")
+
+        elif action == "dooglys_stock":
+            async with session.get(f"{BACKEND_URL}/api/dooglys/stock", headers=headers) as r:
+                if r.status != 200:
+                    await message.answer("❌ Не удалось получить остатки из Dooglys.")
+                    return
+                data = await r.json()
+            await message.answer(f"📦 Получены остатки из Dooglys: {len(data) if isinstance(data, list) else '—'}")
+
+        else:
+            await message.answer(
+                "Не понял запрос 🤷 Попробуйте спросить про выручку, остатки или товары. "
+                "Или наберите /help."
+            )
 
 
 async def main():
