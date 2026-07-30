@@ -25,10 +25,12 @@ if not BOT_TOKEN:
 
 # Список "функций", которые AI может выбрать в ответ на свободный текст пользователя
 AVAILABLE_ACTIONS = {
-    "dashboard": "сводка по выручке и заказам за сегодня",
-    "lowstock": "список ингредиентов с критично низким остатком",
-    "dooglys_products": "список товаров напрямую из Dooglys",
-    "dooglys_stock": "остатки на складе напрямую из Dooglys",
+    "dashboard": "выручка и заказы за сегодня из нашей внутренней базы (используем только если явно просят 'наши' или 'локальные' данные)",
+    "lowstock": "список ингредиентов с низким остатком из нашей внутренней базы",
+    "products": "список товаров, номенклатура, что есть в меню/каталоге",
+    "stock": "остатки на складе, сколько чего осталось",
+    "sales": "продажи, выручка, заказы, сколько продали",
+    "probe": "проверить какие разделы данных вообще доступны (диагностика доступа)",
 }
 
 
@@ -196,21 +198,40 @@ async def handle_free_text(message: Message):
                 text = "⚠️ Заканчиваются:\n" + "\n".join(f"- {i['name']}: {i['current_stock']} {i['unit']}" for i in items)
                 await message.answer(text)
 
-        elif action == "dooglys_products":
+        elif action == "products":
             async with session.get(f"{BACKEND_URL}/api/dooglys/products", headers=headers) as r:
                 if r.status != 200:
-                    await message.answer("❌ Не удалось получить товары из Dooglys.")
+                    await message.answer("❌ Не удалось получить товары.")
                     return
                 data = await r.json()
-            await message.answer(f"📦 Получено товаров из Dooglys: {len(data) if isinstance(data, list) else '—'}")
+            await message.answer(f"📦 Товаров в каталоге: {len(data) if isinstance(data, list) else '—'}")
 
-        elif action == "dooglys_stock":
+        elif action == "stock":
             async with session.get(f"{BACKEND_URL}/api/dooglys/stock", headers=headers) as r:
                 if r.status != 200:
-                    await message.answer("❌ Не удалось получить остатки из Dooglys.")
+                    await message.answer("❌ Не удалось получить остатки склада (пока нет доступа к этому разделу).")
                     return
                 data = await r.json()
-            await message.answer(f"📦 Получены остатки из Dooglys: {len(data) if isinstance(data, list) else '—'}")
+            await message.answer(f"📦 Позиций на складе: {len(data) if isinstance(data, list) else '—'}")
+
+        elif action == "sales":
+            async with session.get(f"{BACKEND_URL}/api/dooglys/sales", headers=headers) as r:
+                if r.status != 200:
+                    await message.answer("❌ Не удалось получить продажи.")
+                    return
+                data = await r.json()
+            await message.answer(f"💰 Продаж найдено: {len(data) if isinstance(data, list) else '—'}")
+
+        elif action == "probe":
+            async with session.get(f"{BACKEND_URL}/api/dooglys/probe", headers=headers) as r:
+                results = await r.json()
+            lines = []
+            for item in results:
+                mark = "✅" if item.get("ok") else "❌"
+                lines.append(f"{mark} {item['path']} — {item['status']}")
+            text = "🔍 Проверка доступа:\n" + "\n".join(lines)
+            for i in range(0, len(text), 3500):
+                await message.answer(text[i:i + 3500])
 
         else:
             await message.answer(
