@@ -22,12 +22,12 @@ async function getProducts() {
 }
 
 async function getStock() {
-  const { data } = await client.get('/structure/stock/list');
+  const { data } = await client.get('/warehouse/stock/list', { params: { 'per-page': 999 } });
   return data;
 }
 
 async function getSales({ from, to } = {}) {
-  const { data } = await client.get('/sales/list', { params: { from, to } });
+  const { data } = await client.get('/sales/document/list', { params: { from, to, 'per-page': 100 } });
   return data;
 }
 
