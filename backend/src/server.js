@@ -130,6 +130,11 @@ app.get('/api/dooglys/sales', authMiddleware, async (req, res) => {
   }
 });
 
+app.get('/api/dooglys/probe', authMiddleware, requireRole('admin'), async (req, res) => {
+  const results = await dooglys.probeEndpoints();
+  res.json(results);
+});
+
 // === HEALTH CHECK (для Railway) ===
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
