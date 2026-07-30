@@ -14,6 +14,7 @@ app.use(express.json());
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const JWT_SECRET = process.env.JWT_SECRET;
+const dooglys = require('./dooglys');
 
 // --- Middleware: проверка JWT токена ---
 function authMiddleware(req, res, next) {
@@ -95,6 +96,38 @@ app.get('/api/sales', authMiddleware, async (req, res) => {
 app.get('/api/ingredients/low-stock', authMiddleware, async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM ingredients WHERE current_stock <= min_stock');
   res.json(rows);
+});
+
+// === DOOGLYS (прямая интеграция) ===
+app.get('/api/dooglys/products', authMiddleware, async (req, res) => {
+  try {
+    const data = await dooglys.getProducts();
+    res.json(data);
+  } catch (err) {
+    console.error('Dooglys products error:', err.message);
+    res.status(502).json({ error: 'Не удалось получить товары из Dooglys' });
+  }
+});
+
+app.get('/api/dooglys/stock', authMiddleware, async (req, res) => {
+  try {
+    const data = await dooglys.getStock();
+    res.json(data);
+  } catch (err) {
+    console.error('Dooglys stock error:', err.message);
+    res.status(502).json({ error: 'Не удалось получить остатки из Dooglys' });
+  }
+});
+
+app.get('/api/dooglys/sales', authMiddleware, async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const data = await dooglys.getSales({ from, to });
+    res.json(data);
+  } catch (err) {
+    console.error('Dooglys sales error:', err.message);
+    res.status(502).json({ error: 'Не удалось получить продажи из Dooglys' });
+  }
 });
 
 // === HEALTH CHECK (для Railway) ===
