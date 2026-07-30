@@ -17,7 +17,7 @@ const client = axios.create({
 });
 
 async function getProducts() {
-  const { data } = await client.get('/nomenclature/item/list');
+  const { data } = await client.get('/nomenclature/product/list', { params: { 'per-page': 999 } });
   return data;
 }
 
