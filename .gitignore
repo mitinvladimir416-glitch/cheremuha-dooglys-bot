@@ -1,0 +1,30 @@
+# === Секреты — НИКОГДА не коммитить ===
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# === Node.js (backend) ===
+node_modules/
+npm-debug.log*
+backend/node_modules/
+backend/dist/
+
+# === Python (bot) ===
+__pycache__/
+*.pyc
+*.pyo
+venv/
+bot/venv/
+bot/__pycache__/
+
+# === React (frontend) ===
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env
+
+# === Прочее ===
+.DS_Store
+*.log
