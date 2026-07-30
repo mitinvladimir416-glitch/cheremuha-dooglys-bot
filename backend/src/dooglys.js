@@ -5,10 +5,14 @@ const axios = require('axios');
 
 const DOOGLYS_API_BASE = process.env.DOOGLYS_API_BASE || 'https://cheremukha.dooglys.com/api/v1';
 const DOOGLYS_ACCESS_TOKEN = process.env.DOOGLYS_ACCESS_TOKEN;
+const DOOGLYS_DOMAIN = process.env.DOOGLYS_DOMAIN || 'cheremukha';
 
 const client = axios.create({
   baseURL: DOOGLYS_API_BASE,
-  headers: { Authorization: `Bearer ${DOOGLYS_ACCESS_TOKEN}` },
+  headers: {
+    'Tenant-Domain': DOOGLYS_DOMAIN,
+    'Access-Token': DOOGLYS_ACCESS_TOKEN,
+  },
   timeout: 10000,
 });
 
