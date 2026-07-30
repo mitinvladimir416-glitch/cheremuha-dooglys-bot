@@ -1,1 +1,35 @@
+// === Клиент для Dooglys API ===
+// Токен и домен берутся только из переменных окружения.
 
+const axios = require('axios');
+
+const DOOGLYS_API_BASE = process.env.DOOGLYS_API_BASE || 'https://cheremukha.dooglys.com/api/v1';
+const DOOGLYS_ACCESS_TOKEN = process.env.DOOGLYS_ACCESS_TOKEN;
+
+const client = axios.create({
+  baseURL: DOOGLYS_API_BASE,
+  headers: { Authorization: `Bearer ${DOOGLYS_ACCESS_TOKEN}` },
+  timeout: 10000,
+});
+
+async function getProducts() {
+  const { data } = await client.get('/nomenclature/item/list');
+  return data;
+}
+
+async function getStock() {
+  const { data } = await client.get('/structure/stock/list');
+  return data;
+}
+
+async function getSales({ from, to } = {}) {
+  const { data } = await client.get('/sales/list', { params: { from, to } });
+  return data;
+}
+
+async function getRecipe(productId) {
+  const { data } = await client.get(`/nomenclature/recipe/${productId}`);
+  return data;
+}
+
+module.exports = { getProducts, getStock, getSales, getRecipe };
