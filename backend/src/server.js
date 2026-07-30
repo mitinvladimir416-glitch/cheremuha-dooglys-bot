@@ -114,7 +114,7 @@ app.get('/api/dooglys/stock', authMiddleware, async (req, res) => {
     const data = await dooglys.getStock();
     res.json(data);
   } catch (err) {
-    console.error('Dooglys stock error:', err.message);
+    console.error('Dooglys stock error:', err.response?.status, JSON.stringify(err.response?.data));
     res.status(502).json({ error: 'Не удалось получить остатки из Dooglys' });
   }
 });
