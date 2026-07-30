@@ -22,12 +22,14 @@ async function getProducts() {
 }
 
 async function getStock() {
-  const { data } = await client.get('/warehouse/stock/list', { params: { 'per-page': 999 } });
+  // Прямого доступа к остаткам нет (403 у этого токена).
+  // Единственный доступный складской раздел — документы склада (движения).
+  const { data } = await client.get('/warehouse/document/list', { params: { 'per-page': 999 } });
   return data;
 }
 
 async function getSales({ from, to } = {}) {
-  const { data } = await client.get('/sales/document/list', { params: { from, to, 'per-page': 100 } });
+  const { data } = await client.get('/sales/order/list', { params: { from, to, 'per-page': 100 } });
   return data;
 }
 
